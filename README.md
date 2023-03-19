@@ -31,7 +31,7 @@ GCP doesn't support GitHub Container Registry. Mirror it to a supported registry
 docker_tag=dev
 gcp_project=ctrl-358804
 
-# So that we can run docker push to push to gcr.io
+# So that we can run `docker push` to push to gcr.io
 gcloud auth configure-docker
 
 docker pull "ghcr.io/umccr/elsa-data:${docker_tag}"
@@ -65,31 +65,31 @@ gcloud iam service-accounts keys create credentials.json \
 ## Creating Infrastructure
 
 
-Check that the variables in `main.tfvars` are set correctly. Once set, run the following to create the Kubernetes cluster we'll use:
+1. Check that the variables in `main.tfvars` are set correctly. Once set, run the following to create the Kubernetes cluster which Elsa will run on:
 
-```bash
-terraform apply -target=google_container_cluster.elsa_data_k8s -var-file=main.tfvars
-```
+   ```bash
+   terraform apply -target=google_container_cluster.elsa_data_k8s -var-file=main.tfvars
+   ```
 
-Configure `kubectl` to use the newly created cluster. You might need to specify the region when running `gcloud` (e.g. by passing `--region=australia-southeast1-c`):
+2. Configure `kubectl` to use the newly created cluster. You might need to specify the region when running `gcloud` (e.g. by passing `--region=australia-southeast1-c`):
 
-```bash
-gcloud container clusters get-credentials elsa-data-k8s
-```
+   ```bash
+   gcloud container clusters get-credentials elsa-data-k8s
+   ```
 
-Confirm that the `kubectl` can see the cluster and that it's active:
+3. Confirm that the `kubectl` can see the cluster and that it's active:
 
-```bash
-kubectl get namespaces
-```
+   ```bash
+   kubectl get namespaces
+   ```
 
-Deploy the remainder of the Elsa:
+4. Deploy the remainder of the Elsa:
 
-```bash
-terraform apply -var apply_k8s_secrets=true -var-file=main.tfvars
-```
+   ```bash
+   terraform apply -var apply_k8s_secrets=true -var-file=main.tfvars
+   ```
 
-The deployment will not work until you have set the secrets as described in the next steps. Before you set the Kubernetes secrets, it's important to prevent Terraform from continuing to manage them. Otherwise, the next time you run `terraform apply`, the secret values will be stored in the tfstate file. Prevent Terraform from managing the secrets as follows:
+The deployment will not work until you have set the secrets as described in the next steps. Before you set the Kubernetes secrets, it's important to prevent Terraform from continuing to manage them. Otherwise, the next time you run `terraform apply`, the secret values will be stored in the `.tfstate` file. Prevent Terraform from managing the secrets as follows:
 
 ```bash
 terraform state list | grep kubernetes_secret | xargs -L 1 terraform state rm
@@ -106,7 +106,7 @@ gcloud sql users set-password "${username}" --instance edgedb-postgres --prompt-
 
 Use `kubectl edit secrets` to edit the secrets. Note that the secrets are base64-encoded. The fields you need to set are as follows:
 
-* `edgedb_server_backend_dsn:` - The DSN of the Google Cloud SQL instance which EdgeDB uses. e.g. `postgresql://${username}:${password}@127.0.0.1:5432`, where `${username} and `${password}` are the Postgres username and password you set in previous steps.
+* `edgedb_server_backend_dsn:` - The DSN of the Google Cloud SQL instance which EdgeDB uses. e.g. `postgresql://${username}:${password}@127.0.0.1:5432`, where `${username}` and `${password}` are the Postgres username and password you set in previous steps.
 * `instance:` - `${INSTANCE_CONNECTION_NAME}=tcp:5432`, where `${INSTANCE_CONNECTION_NAME}` is the connection name of the Google Cloud SQL instance which EdgeDB uses. You can find this using `gcloud sql instances describe edgedb-postgres --format="value(connectionName)"`.
 * `credentials.json:` - The contents of the `credentials.json` which you created in previous steps. (Again, you should ensure this is base64-encoded.)
 * `edgedb_server_tls_cert:` and `edgedb_server_tls_key:` - These are the certificate and key referred to [here](https://www.edgedb.com/docs/guides/deployment/gcp). Elsa can only communicate to the EdgeDB instance within the Kubernetes pod, so self-signed ceritificates are good enough.
